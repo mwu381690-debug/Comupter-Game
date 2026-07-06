@@ -1510,7 +1510,16 @@ CardCombo HelpPass(struct Ddz * pDdz)
 
 	{ //---------------------Ȩֵ������������---------------------
 		{ //---------------------Ȩֵ������������---------------------
-		FinalSeq = myCardCombo.div( myCardCombo );//myActionΪPass�������ƶ������ƣ�����ʼ��
+			/* When we have control (free play), prefer pairs over singles.
+	 * Pairs are harder to beat and maintain control better.
+	 * Only do this when we have both options available. */
+	if(pDdz->iLastTypeCount == 0 && pairs.size() > 0 && singles.size() > 0) {
+		/* Play the smallest pair to maintain control */
+		CardCombo smallestPair = *(pairs.rbegin()); // rbegin = smallest
+		return smallestPair;
+	}
+
+FinalSeq = myCardCombo.div( myCardCombo );//myActionΪPass�������ƶ������ƣ�����ʼ��
 		FinalSeq.Value = -1000;
 
 		for(auto combos = myCardsDiv.begin() ; combos != myCardsDiv.end() ; combos++){
