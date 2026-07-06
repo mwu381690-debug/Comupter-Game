@@ -205,6 +205,35 @@ void ismcts_getLegalActions(vector<int>& hand, int lastType, int lastLevel,
             }
             if (rocket.size() == 2) actions.push_back(rocket);
         }
+        // Straights (5+ consecutive singles, levels 0-11 only)
+        for (int start = 0; start <= 7; start++) {
+            int end = start;
+            for (; end <= 11; end++) { if (counts[end] < 1) break; }
+            if (end - start >= 5) {
+                vector<int> straight;
+                for (int lv = start; lv < end; lv++) {
+                    for (int c : hand) {
+                        if (card2level(c) == lv) { straight.push_back(c); break; }
+                    }
+                }
+                if ((int)straight.size() >= 5) actions.push_back(straight);
+            }
+        }
+        // Trio-planes (2+ consecutive triples, levels 0-11 only)
+        for (int start = 0; start <= 10; start++) {
+            int end = start;
+            for (; end <= 11; end++) { if (counts[end] < 3) break; }
+            if (end - start >= 2) {
+                vector<int> plane; int found;
+                for (int lv = start; lv < end; lv++) {
+                    found = 0;
+                    for (int c : hand) {
+                        if (card2level(c) == lv && found < 3) { plane.push_back(c); found++; }
+                    }
+                }
+                if ((int)plane.size() >= 6) actions.push_back(plane);
+            }
+        }
     } else {
         // Must beat the current play
         if (typeBase == 3) { // SINGLE

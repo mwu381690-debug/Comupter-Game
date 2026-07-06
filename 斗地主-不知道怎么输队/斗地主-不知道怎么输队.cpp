@@ -1984,6 +1984,20 @@ void CalPla(struct Ddz * pDdz)
 		HelpTakeOff(pDdz,i);	//����ȡ���˵�i���ƣ���ʣ����Ʒ���pDdz->iPlaOnHand[]
 		//dout << i <<" : "<<print(combo)<<'\t';
 		dValueNow = CalCardsValue(pDdz->iPlaOnHand);			//�������ƹ�ֵ
+			/* Bomb intelligence: penalize using small bombs on small combos.
+			 * Small bombs (3333-8888) are more valuable as kickers for big
+			 * combos than as responses to small singles/pairs. */
+			if(pDdz->iLastTypeCount != 0) {
+				int respType = pDdz->iLastTypeCount / 100;
+				int respLv = pDdz->iLastMainPoint;
+				if(IsType2Bomb(pDdz->iPlaArr[i])) {
+					int bombLv = AnalyzeMainPoint(pDdz->iPlaArr[i]);
+					if(respType == 3 && respLv < 10 && bombLv < 6)
+						dValueNow -= 20; /* Dont waste 3333-8888 on small singles */
+					if(respType == 4 && respLv < 8 && bombLv < 5)
+						dValueNow -= 20; /* Dont waste 3333-7777 on small pairs */
+				}
+			}
 		if (dValueNow > dValueMax)
 		{
 			dValueMax = dValueNow;
