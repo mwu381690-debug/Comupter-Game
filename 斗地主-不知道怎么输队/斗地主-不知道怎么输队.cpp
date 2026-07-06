@@ -1974,6 +1974,7 @@ void CalPla(struct Ddz * pDdz)
 	infoConvert( pDdz );
 
 	HelpPla(pDdz);				//��Ҫ�����Ƽ�����pDdz->iPlaArr[],pDdz->iPlaCount
+	dout << "[CalPla] candidates=" << pDdz->iPlaCount << " lastType=" << pDdz->iLastTypeCount << flush << endl;
 	for(i=0;i<pDdz->iPlaCount;i++)
 	{
 		vector<Card> Actions;
@@ -2275,6 +2276,21 @@ void CalPla(struct Ddz * pDdz)
 	}
 
 	dout << "Final: iMax=" << iMax << " plaCount=" << pDdz->iPlaCount		<< " iToTable[0]=" << (iMax>=0&&pDdz->iPlaArr[iMax][0]>=0?pDdz->iPlaArr[iMax][0]:-1) << endl;
+	/* EMERGENCY: never pass when landlord is about to win (<=2 cards).
+	 * This is the fix for the Game 8 bug where B had pair 5s to beat
+	 * pair 4s but passed, letting C win immediately. */
+	if(cardRemaining[Landlord] <= 2 && pDdz->iPlaCount > 0) {
+		/* Force play the smallest legal response */
+		if(iMax < 0 || iMax >= pDdz->iPlaCount || pDdz->iPlaArr[iMax][0] < 0)
+			iMax = 0;
+	}
+	/* Also: when responding to landlord with any legal play, never pass.
+	 * If iMax is invalid for some reason, force first candidate. */
+	if(pDdz->iLastTypeCount != 0 && pDdz->iPlaCount > 0
+		&& iMax >= pDdz->iPlaCount) {
+		iMax = 0;
+	}
+
 	if(iMax>-1){
 		for (i = 0;pDdz->iPlaArr[iMax][i] >= 0; i++)
         {
