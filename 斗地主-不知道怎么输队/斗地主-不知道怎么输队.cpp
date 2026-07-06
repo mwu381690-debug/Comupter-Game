@@ -762,6 +762,9 @@ float CardCombo::getValue2() const//控手牌权值优化
     for(Level l=comboLevel+1;l<13;++l){
         if(othersCards[l]>3 or (DoubleKing==true)) biggestBOOM  = false;
     }
+	if(!biggestS  && isLikelyBiggest(comboLevel, 1, 301)) biggestS = true;
+	if(!biggestP  && isLikelyBiggest(comboLevel, 2, 402)) biggestP = true;
+	if(!biggestT  && isLikelyBiggest(comboLevel, 3, 503)) biggestT = true;
 	//得知自己的牌的信息和剩余牌的信息，对权重值进行一些改变
 	if(comboType==CardComboType::SINGLE){
 		if(biggestS){
@@ -1495,14 +1498,12 @@ CardCombo HelpPass(struct Ddz * pDdz)
 
 	}
 
-	/* Endgame: with big single (2/joker/JOKER) + few small singles,
-	 * play small first, save the big card for the winning play. */
+	/* Endgame: big single (2/joker/JOKER) + few small singles, play small first. */
 	if(king.size() == 1 && singles.size() >= 2 && singles.size() <= 3) {
 		CardCombo kingCard = king[0];
 		if(kingCard.comboType == CardComboType::SINGLE && kingCard.comboLevel >= 12) {
-			for(auto it = singles.rbegin(); it != singles.rend(); ++it) {
+			for(auto it = singles.rbegin(); it != singles.rend(); ++it)
 				if(it->comboLevel < 12) return *it;
-			}
 			return *(singles.rbegin());
 		}
 	}
@@ -1634,19 +1635,13 @@ int CalBid(struct Ddz * pDdz	)
 	int iMyBid = 0;
 	setOthersCards(pDdz);
 	int lvC[15] = {0};
-	for (int i = 0; pDdz->iOnHand[i] >= 0; i++)
-		lvC[card2level(pDdz->iOnHand[i])]++;
-	int c2 = lvC[12], cJo = lvC[13], cJO = lvC[14];
-	int bombs = 0;
+	for (int i = 0; pDdz->iOnHand[i] >= 0; i++) lvC[card2level(pDdz->iOnHand[i])]++;
+	int c2 = lvC[12], cJo = lvC[13], cJO = lvC[14], bombs = 0;
 	for (int lv = 0; lv < 13; lv++) if (lvC[lv] >= 4) bombs++;
-	bool rocket = (cJo >= 1 && cJO >= 1);
-	bool big2  = (cJO >= 1 && c2 >= 2);
-	bool bomb2 = (bombs >= 1 && c2 >= 1 && cJO >= 1);
-	if (rocket || big2 || bomb2) iMyBid = 3;
+	if ((cJo>=1&&cJO>=1) || (cJO>=1&&c2>=2) || (bombs>=1&&c2>=1&&cJO>=1)) iMyBid = 3;
 	else if (c2 >= 2 || (cJO >= 1 && c2 >= 1)) iMyBid = 2;
 	else if (c2 >= 1 || cJO >= 1) iMyBid = 1;
-	for (int i = 0; i < 3; i++)
-		if (pDdz->iBid[i] >= iMyBid) iMyBid = 0;
+	for (int i = 0; i < 3; i++) if (pDdz->iBid[i] >= iMyBid) iMyBid = 0;
 	return iMyBid;
 }
 
@@ -2160,9 +2155,6 @@ void CalPla(struct Ddz * pDdz)
 			{
 			    //if(myAction.comboType==CardComboType::BOMB){dout<<"small_normals:"<<small_normals<<endl;}
 				if(lastPlayer == FarmerA){
-					/* Scientific principle from ISMCTS paper: never block teammate. */
-					pDdz->iToTable[0] = -1; return;
-
 					if(cardRemaining[Landlord] == 1){
                         if(lastValidCombo.getValue2()>=7){
                             pDdz->iToTable[0] = -1;//让牌
@@ -2181,11 +2173,10 @@ void CalPla(struct Ddz * pDdz)
                         }
 					}
 
-					/* Cooperate: pass only when teammate winning (<=2 cards) or their
-					 * play is strong (value>=7) and we have many small cards (>3). */
-					bool tmWin = (cardRemaining[FarmerA] <= 2);
-					if(tmWin and num_normals > 1){ pDdz->iToTable[0] = -1; return; }
-					if(lastValidCombo.getValue2() >= 7 and num_normals > 3){ pDdz->iToTable[0] = -1; return; }
+					/* Smart coop: pass to teammate only when they have <=2 cards AND strong play. */
+					if(cardRemaining[FarmerA] <= 2 && lastValidCombo.getValue2() >= 7){
+						pDdz->iToTable[0] = -1; return;
+					}
 				}
 				if(lastPlayer == Landlord){
 					if(cardRemaining[Landlord] == 1){
@@ -2202,14 +2193,6 @@ void CalPla(struct Ddz * pDdz)
 					//自己的牌很大，地主剩余牌数大于某值，自己散的小的牌很多，作为农民乙的让牌
 					//检测自己散牌小牌数量多少
 
-					if(((myAction.comboLevel>=11 or myAction.comboType==CardComboType::BOMB) or myAction.comboType==CardComboType::BOMB)and cardRemaining[Landlord]>=10 and small_normals>=4 and
-                        (myAction.comboType==CardComboType::PAIR or myAction.comboType==CardComboType::SINGLE
-                         or myAction.comboType==CardComboType::TRIPLET or myAction.comboType==CardComboType::TRIPLET1
-                         or myAction.comboType==CardComboType::TRIPLET2 or myAction.comboType==CardComboType::BOMB
-                         or myAction.comboType==CardComboType::ROCKET)){//自己的牌很大，地主留的牌很多，自己散牌很多时(除顺子这些长牌外，这些牌一定会顶牌)
-                        pDdz->iToTable[0] = -1;//让牌
-						 return;
-					}
 
 
 				}
@@ -2217,14 +2200,10 @@ void CalPla(struct Ddz * pDdz)
 			if (myPosition == FarmerA)//如果是农民甲，只要别恶性内斗就行（K为界限）
 			{
 				if(lastPlayer == FarmerB){
-					/* Never block teammate. */
-					pDdz->iToTable[0] = -1; return;
-
-					/* Cooperate: pass only when teammate winning (<=2 cards) or their
-					 * play is strong (value>=7) and we have many small cards (>3). */
-					bool tmWin = (cardRemaining[FarmerB] <= 2);
-					if(tmWin and num_normals > 1){ pDdz->iToTable[0] = -1; return; }
-					if(lastValidCombo.getValue2() >= 7 and num_normals > 3){ pDdz->iToTable[0] = -1; return; }
+					/* Smart coop: pass to teammate only when they have <=2 cards AND strong play. */
+					if(cardRemaining[FarmerB] <= 2 && lastValidCombo.getValue2() >= 7){
+						pDdz->iToTable[0] = -1; return;
+					}
 				}
 				if(lastPlayer == Landlord){
 					if(cardRemaining[Landlord] == 1){
@@ -2238,11 +2217,6 @@ void CalPla(struct Ddz * pDdz)
 						}
 					}
 					/***********对弈地主时的让牌***********/
-					/* vs Landlord: only pass in very early game (>=13 cards left,
-					 * >=6 small cards) to save big cards for later. */
-					if(myAction.comboLevel>=11 and cardRemaining[Landlord]>=13 and small_normals>=6){
-						pDdz->iToTable[0] = -1; return;
-					}
 
 				}
 			}
@@ -2265,31 +2239,21 @@ void CalPla(struct Ddz * pDdz)
 
 				/***********对弈农民时的让牌***********/
                 if(myAction.comboType==CardComboType::BOMB)dout<<"small_normals:"<<small_normals<<endl;
-					/* Landlord: only pass in very early game, both farmers >=10 cards,
-					 * >=6 small cards, to save big cards for later. */
-					if(myAction.comboLevel>=11 and cardRemaining[FarmerA]>=10 and cardRemaining[FarmerB]>=10 and small_normals>=6){
-						pDdz->iToTable[0] = -1; return;
-					}
 
 			}
 		}
 	}
 
-	/* ISMCTS Search: Whitehouse et al., CIG 2011 */
-	/* When few candidates (<=5), use ISMCTS to pick best. */
+	/* ISMCTS (Whitehouse et al., CIG 2011): use tree search when <=8 candidates */
 	if(pDdz->iPlaCount > 0 && pDdz->iPlaCount <= 8) {
 		vector<int> ismctsAction = ismcts_search(pDdz, 300, 1.0f);
 		if(!ismctsAction.empty()) {
 			for(int is_i = 0; is_i < pDdz->iPlaCount; is_i++) {
 				bool match = true; int is_j = 0;
-				for(; pDdz->iPlaArr[is_i][is_j] >= 0; is_j++) {
-					if(is_j >= (int)ismctsAction.size() || pDdz->iPlaArr[is_i][is_j] != ismctsAction[is_j]) {
-						match = false; break;
-					}
-				}
-				if(match && is_j == (int)ismctsAction.size()) {
-					iMax = is_i; break;
-				}
+				for(; pDdz->iPlaArr[is_i][is_j] >= 0; is_j++)
+					if(is_j >= (int)ismctsAction.size() || pDdz->iPlaArr[is_i][is_j] != ismctsAction[is_j])
+						{ match = false; break; }
+				if(match && is_j == (int)ismctsAction.size()) { iMax = is_i; break; }
 			}
 		}
 	}
