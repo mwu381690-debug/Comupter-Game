@@ -761,12 +761,6 @@ float CardCombo::getValue2() const//控手牌权值优化
     for(Level l=comboLevel+1;l<13;++l){
         if(othersCards[l]>3 or (DoubleKing==true)) biggestBOOM  = false;
     }
-
-	/* Opponent model: upgrade to biggest if pass history shows
-	 * opponents likely lack bigger cards. Only upgrades, never downgrades. */
-	if(!biggestS  && isLikelyBiggest(comboLevel, 1, 301)) biggestS = true;
-	if(!biggestP  && isLikelyBiggest(comboLevel, 2, 402)) biggestP = true;
-	if(!biggestT  && isLikelyBiggest(comboLevel, 3, 503)) biggestT = true;
 	//得知自己的牌的信息和剩余牌的信息，对权重值进行一些改变
 	if(comboType==CardComboType::SINGLE){
 		if(biggestS){
@@ -1500,17 +1494,14 @@ CardCombo HelpPass(struct Ddz * pDdz)
 
 	}
 
-	/* Endgame: when holding an unbeatable big single (2/joker/JOKER)
-	 * and a few small singles, play small first, save the big card for
-	 * the winning play. E.g. hand={JOKER,9,8}: play 8 first, not JOKER. */
+	/* Endgame: with big single (2/joker/JOKER) + few small singles,
+	 * play small first, save the big card for the winning play. */
 	if(king.size() == 1 && singles.size() >= 2 && singles.size() <= 3) {
 		CardCombo kingCard = king[0];
 		if(kingCard.comboType == CardComboType::SINGLE && kingCard.comboLevel >= 12) {
-			/* Find the smallest single (excluding the king card) */
 			for(auto it = singles.rbegin(); it != singles.rend(); ++it) {
 				if(it->comboLevel < 12) return *it;
 			}
-			/* All singles are big - just play the smallest */
 			return *(singles.rbegin());
 		}
 	}
@@ -2186,12 +2177,11 @@ void CalPla(struct Ddz * pDdz)
                         }
 					}
 
-					if( ((lastValidCombo.getValue2() > 2 or cardRemaining[lastPlayer] <=4 or bigSingle or bigPair) and num_normals >2) or
-                            ((mybigSingle or mybigPair or myAction.getValue2()>3)and num_normals>1 and (cardRemaining[Landlord]>3 or lastValidCombo.getValue2()>=7))){//平时让牌
-					    //两种让牌情况：一是队友快过了但自己还没能过，快让让。二是队友出的牌很大且自己没能过，没必要内耗。
-						 pDdz->iToTable[0] = -1;//让牌
-						 return;
-					}
+					/* Cooperate: pass only when teammate winning (<=2 cards) or their
+					 * play is strong (value>=7) and we have many small cards (>3). */
+					bool tmWin = (cardRemaining[FarmerA] <= 2);
+					if(tmWin and num_normals > 1){ pDdz->iToTable[0] = -1; return; }
+					if(lastValidCombo.getValue2() >= 7 and num_normals > 3){ pDdz->iToTable[0] = -1; return; }
 				}
 				if(lastPlayer == Landlord){
 					if(cardRemaining[Landlord] == 1){
@@ -2223,12 +2213,11 @@ void CalPla(struct Ddz * pDdz)
 			if (myPosition == FarmerA)//如果是农民甲，只要别恶性内斗就行（K为界限）
 			{
 				if(lastPlayer == FarmerB){
-					if( ((lastValidCombo.getValue2() > 2 or cardRemaining[FarmerB] < 6 or bigSingle or bigPair) and num_normals > 2) or
-                            ((mybigSingle or mybigPair or myAction.getValue2()>3)and num_normals>1 )){
-					    //在自己不能赢的时候积极给乙农民让牌
-						 pDdz->iToTable[0] = -1;//让牌
-						 return;
-					}
+					/* Cooperate: pass only when teammate winning (<=2 cards) or their
+					 * play is strong (value>=7) and we have many small cards (>3). */
+					bool tmWin = (cardRemaining[FarmerB] <= 2);
+					if(tmWin and num_normals > 1){ pDdz->iToTable[0] = -1; return; }
+					if(lastValidCombo.getValue2() >= 7 and num_normals > 3){ pDdz->iToTable[0] = -1; return; }
 				}
 				if(lastPlayer == Landlord){
 					if(cardRemaining[Landlord] == 1){
@@ -2242,13 +2231,10 @@ void CalPla(struct Ddz * pDdz)
 						}
 					}
 					/***********对弈地主时的让牌***********/
-					if((myAction.comboLevel>=11 or myAction.comboType==CardComboType::BOMB) and cardRemaining[Landlord]>=13 and small_normals>=5 and
-                        (myAction.comboType==CardComboType::PAIR or myAction.comboType==CardComboType::SINGLE
-                         or myAction.comboType==CardComboType::TRIPLET or myAction.comboType==CardComboType::TRIPLET1
-                         or myAction.comboType==CardComboType::TRIPLET2 or myAction.comboType==CardComboType::BOMB
-                         or myAction.comboType==CardComboType::ROCKET)){//自己的牌很大，地主留的牌很多，自己散牌很多时(除顺子这些长牌外，这些牌一定会顶牌)
-                        pDdz->iToTable[0] = -1;//让牌
-						 return;
+					/* vs Landlord: only pass in very early game (>=13 cards left,
+					 * >=6 small cards) to save big cards for later. */
+					if(myAction.comboLevel>=11 and cardRemaining[Landlord]>=13 and small_normals>=6){
+						pDdz->iToTable[0] = -1; return;
 					}
 
 				}
@@ -2272,23 +2258,15 @@ void CalPla(struct Ddz * pDdz)
 
 				/***********对弈农民时的让牌***********/
                 if(myAction.comboType==CardComboType::BOMB)dout<<"small_normals:"<<small_normals<<endl;
-                if((myAction.comboLevel>=11 or myAction.comboType==CardComboType::BOMB)  and (cardRemaining[FarmerA]>=7 and cardRemaining[FarmerB]>=8) and small_normals>=4 and
-                        (myAction.comboType==CardComboType::PAIR or myAction.comboType==CardComboType::SINGLE
-                         or myAction.comboType==CardComboType::TRIPLET or myAction.comboType==CardComboType::TRIPLET1
-                         or myAction.comboType==CardComboType::TRIPLET2 or myAction.comboType==CardComboType::BOMB
-                         or myAction.comboType==CardComboType::ROCKET)){//自己的牌很大，地主留的牌很多，自己散牌很多时(除顺子这些长牌外，这些牌一定会顶牌)
-                         pDdz->iToTable[0] = -1;//让牌
-						 return;
+					/* Landlord: only pass in very early game, both farmers >=10 cards,
+					 * >=6 small cards, to save big cards for later. */
+					if(myAction.comboLevel>=11 and cardRemaining[FarmerA]>=10 and cardRemaining[FarmerB]>=10 and small_normals>=6){
+						pDdz->iToTable[0] = -1; return;
 					}
 
 			}
 		}
 	}
-
-	/* MC Rollout Evaluation: disabled (experimental).
-	 * To enable: include opponent_model.h, uncomment the block below.
-	 * Recommended: mcEvaluateAction(pDdz, mcAction, 50) for reliable results.
-	 */
 
 	if(iMax>-1){
 		for (i = 0;pDdz->iPlaArr[iMax][i] >= 0; i++)
