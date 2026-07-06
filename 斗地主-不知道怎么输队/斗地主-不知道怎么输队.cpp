@@ -478,6 +478,8 @@ void setOthersCards( Ddz * pDdz ){
 	}
 
 	initOpponentModel(pDdz);
+	initOpponentModel(pDdz);  // Initialize Bayesian opponent hand tracking
+	rebuildOpponentModel(pDdz);  // Rebuild opponent hand model from history
 }
 
 //信息转换函数，用于衔接Botzone函数和Ddz平台变量
@@ -718,13 +720,8 @@ float CardCombo::getValue2() const//控手牌权值优化
 	Level value = this->comboLevel;
 	/* Probabilistic "biggest" checks using opponent model inference
 	 * Replaces the original boolean checks with probability-based estimates */
-	bool DoubleKing = ((othersCards[13]+othersCards[14])>=2);
-	bool FourBoom = false;
-	for(Level l=0;l<13;++l) {
-		if(othersCards[l]>3) { FourBoom=true; break; }
-	}
-
-	/* Use isLikelyBiggest() for smarter card strength estimation */
+	/* Use isLikelyBiggest() for probability-based "biggest" checks.
+	 * Rocket and bomb threats are handled internally by isLikelyBiggest(). */
 	bool biggestS  = isLikelyBiggest(comboLevel, 1, 301);
 	bool biggestP  = isLikelyBiggest(comboLevel, 2, 402);
 	bool biggestT  = isLikelyBiggest(comboLevel, 3, 503);
@@ -2241,6 +2238,31 @@ void CalPla(struct Ddz * pDdz)
 			}
 		}
 	}
+
+	/* ─────────── MC Rollout Evaluation ─────────── */
+	/* When we have few candidates (≤8), run Monte Carlo simulations
+	 * to pick the move with the best estimated win probability.
+	 * This overrides the greedy selection when MC finds a better move. */
+	if(pDdz->iPlaCount > 0 && pDdz->iPlaCount <= 8) {
+		float bestMC = -1.0f;
+		int mcBest = iMax;
+		for(int mc_i = 0; mc_i < pDdz->iPlaCount; mc_i++) {
+			vector<int> mcAction;
+			for (int mc_j = 0; pDdz->iPlaArr[mc_i][mc_j] >= 0; mc_j++)
+				mcAction.push_back(pDdz->iPlaArr[mc_i][mc_j]);
+			mcAction.push_back(-1);  // Sentinel for AnalyzeTypeCount
+			float mcVal = mcEvaluateAction(pDdz, mcAction, 15);
+			if(mcVal > bestMC) {
+				bestMC = mcVal;
+				mcBest = mc_i;
+			}
+		}
+		/* Use MC result if it disagrees significantly with greedy */
+		if(bestMC > 0.55f && mcBest != iMax) {
+			iMax = mcBest;
+		}
+	}
+	/* ─────────── End MC Evaluation ─────────── */
 
 	if(iMax>-1){
 		for (i = 0;pDdz->iPlaArr[iMax][i] >= 0; i++)
