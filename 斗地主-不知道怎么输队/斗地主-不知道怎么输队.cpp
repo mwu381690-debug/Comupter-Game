@@ -1508,6 +1508,19 @@ CardCombo HelpPass(struct Ddz * pDdz)
 		}
 	}
 
+	/* Universal principle: when in control, play smallest combo first.
+	 * Small cards are harder to play later (opponents play bigger).
+	 * Save big cards for critical moments. */
+	if(pDdz->iLastTypeCount == 0 && myCardsDiv.size() > 1) {
+		/* Find the combo with the smallest level, prefer it */
+		CardCombo smallestCombo = *(myCardsDiv.rbegin()); // rbegin=smallest
+		/* Only apply if it's a reasonable play (not passing up a winning move) */
+		if(smallestCombo.comboLevel <= 10) { // Don't force on big combos
+			CardCombo tempAction = smallestCombo.MergeCombo(singles,pairs);
+			return tempAction;
+		}
+	}
+
 	{ //---------------------Ȩֵ������������---------------------
 		{ //---------------------Ȩֵ������������---------------------
 		FinalSeq = myCardCombo.div( myCardCombo );//myActionΪPass�������ƶ������ƣ�����ʼ��
