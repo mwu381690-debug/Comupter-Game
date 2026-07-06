@@ -2241,21 +2241,29 @@ void CalPla(struct Ddz * pDdz)
 				/* Landlord must stay aggressive (DouZero+ principle).
 				 * If responding to a farmer and we have JOKER/2/bomb, never pass.
 				 * Losing control as landlord usually means losing the game. */
-				/* Landlord aggressive: when we have JOKER/2/bomb to play,
-				 * DO IT immediately. Never pass as landlord with strong cards. */
+				/* Landlord aggression with card conservation.
+				 * Play JOKER/2 only when the play we're beating is worth it
+				 * (level>=10 i.e. K/A/2) or opponent has <=3 cards left.
+				 * Don't waste JOKER on beating a 3 or 4. */
 				if(pDdz->iPlaCount > 0 && iMax >= 0 && iMax < pDdz->iPlaCount) {
 					int actionArr[21]; int ai=0;
 					for(; pDdz->iPlaArr[iMax][ai]>=0; ai++)
 						actionArr[ai]=pDdz->iPlaArr[iMax][ai];
 					actionArr[ai]=-1;
 					int mainPt = AnalyzeMainPoint(actionArr);
-					if(mainPt >= 12 || IsType2Bomb(actionArr) || IsType1Rocket(actionArr)) {
-						/* Play it now - copy to iToTable and return */
+					bool isBig = (mainPt >= 12);  /* JOKER=14, joker=13, 2=12 */
+					bool isBomb = IsType2Bomb(actionArr) || IsType1Rocket(actionArr);
+					int respLevel = pDdz->iLastMainPoint;
+					bool oppLow = (cardRemaining[FarmerA] <= 3 || cardRemaining[FarmerB] <= 3);
+					/* Play big cards only when: opponent is low OR beating a big card */
+					if((isBig && (respLevel >= 10 || oppLow)) || (isBomb && oppLow)) {
 						for (i = 0; i < ai; i++)
 							pDdz->iToTable[i] = pDdz->iPlaArr[iMax][i];
 						pDdz->iToTable[ai] = -1;
 						return;
 					}
+					/* Don't force big cards on small plays. Let normal
+					 * valuation decide. JOKER on a 3 is wasteful. */
 				}
 				if(cardRemaining[FarmerA]==1 || cardRemaining[FarmerB]==1){
 					CardCombo bigS(--myCards.end(),myCards.end());
