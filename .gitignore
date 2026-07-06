@@ -1,0 +1,23 @@
+# 编译产物
+*.exe
+*.o
+*.obj
+*.ipch
+*.db
+*.suo
+*.slnx.sqlite
+
+# IDE
+.vs/
+.vscode/
+
+# 临时文件
+*.txt.txt
+debug.txt
+WinRate.txt.txt
+params.txt.txt
+Gamelog.log
+news.txt
+
+# 备份
+*.bak
