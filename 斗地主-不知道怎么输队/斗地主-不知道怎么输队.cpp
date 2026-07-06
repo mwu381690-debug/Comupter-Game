@@ -1631,22 +1631,22 @@ double CalCardsValue(int iPlaOnHand[])
 //最后修订者:梅险,最后修订时间:15-02-12
 int CalBid(struct Ddz * pDdz	)
 {
-	int i;
-	int iMyBid=3;			//叫牌
-	setOthersCards( pDdz ); //记牌器，余牌统计
-	double value = CalCardsValue(pDdz->iOnHand);
-	value = minimum(value, -20); //value常负
-	iMyBid += (value+25)/20;
-	iMyBid = maximum(iMyBid, 0);
-	//cout << value <<endl;
-	//cout << iMyBid<<endl;
-	for(i=0;i<3;i++)
-		if(pDdz->iBid[i]>=iMyBid)
-			iMyBid=0;
-    if(iMyBid==3)dout<<"value3:"<<value<<endl;
-    if(iMyBid==2)dout<<"value2:"<<value<<endl;
-    if(iMyBid==1)dout<<"value1:"<<value<<endl;
-    if(iMyBid==0)dout<<"value0:"<<value<<endl;
+	int iMyBid = 0;
+	setOthersCards(pDdz);
+	int lvC[15] = {0};
+	for (int i = 0; pDdz->iOnHand[i] >= 0; i++)
+		lvC[card2level(pDdz->iOnHand[i])]++;
+	int c2 = lvC[12], cJo = lvC[13], cJO = lvC[14];
+	int bombs = 0;
+	for (int lv = 0; lv < 13; lv++) if (lvC[lv] >= 4) bombs++;
+	bool rocket = (cJo >= 1 && cJO >= 1);
+	bool big2  = (cJO >= 1 && c2 >= 2);
+	bool bomb2 = (bombs >= 1 && c2 >= 1 && cJO >= 1);
+	if (rocket || big2 || bomb2) iMyBid = 3;
+	else if (c2 >= 2 || (cJO >= 1 && c2 >= 1)) iMyBid = 2;
+	else if (c2 >= 1 || cJO >= 1) iMyBid = 1;
+	for (int i = 0; i < 3; i++)
+		if (pDdz->iBid[i] >= iMyBid) iMyBid = 0;
 	return iMyBid;
 }
 
@@ -2160,6 +2160,9 @@ void CalPla(struct Ddz * pDdz)
 			{
 			    //if(myAction.comboType==CardComboType::BOMB){dout<<"small_normals:"<<small_normals<<endl;}
 				if(lastPlayer == FarmerA){
+					/* Scientific principle from ISMCTS paper: never block teammate. */
+					pDdz->iToTable[0] = -1; return;
+
 					if(cardRemaining[Landlord] == 1){
                         if(lastValidCombo.getValue2()>=7){
                             pDdz->iToTable[0] = -1;//让牌
@@ -2214,6 +2217,9 @@ void CalPla(struct Ddz * pDdz)
 			if (myPosition == FarmerA)//如果是农民甲，只要别恶性内斗就行（K为界限）
 			{
 				if(lastPlayer == FarmerB){
+					/* Never block teammate. */
+					pDdz->iToTable[0] = -1; return;
+
 					/* Cooperate: pass only when teammate winning (<=2 cards) or their
 					 * play is strong (value>=7) and we have many small cards (>3). */
 					bool tmWin = (cardRemaining[FarmerB] <= 2);
@@ -2271,8 +2277,8 @@ void CalPla(struct Ddz * pDdz)
 
 	/* ISMCTS Search: Whitehouse et al., CIG 2011 */
 	/* When few candidates (<=5), use ISMCTS to pick best. */
-	if(pDdz->iPlaCount > 0 && pDdz->iPlaCount <= 5) {
-		vector<int> ismctsAction = ismcts_search(pDdz, 150, 1.0f);
+	if(pDdz->iPlaCount > 0 && pDdz->iPlaCount <= 8) {
+		vector<int> ismctsAction = ismcts_search(pDdz, 300, 1.0f);
 		if(!ismctsAction.empty()) {
 			for(int is_i = 0; is_i < pDdz->iPlaCount; is_i++) {
 				bool match = true; int is_j = 0;

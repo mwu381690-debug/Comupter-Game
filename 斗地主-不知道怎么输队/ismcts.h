@@ -297,19 +297,35 @@ int ismcts_rollout(vector<int> hands[3], int startPlayer,
                 lastType = 0; lastLevel = -1; lastPassCount = 0;
             }
         } else {
-            // Play a random legal action (simple rollout policy)
-            int idx = rand() % legalActions.size();
-            vector<int>& action = legalActions[idx];
+            /* Greedy rollout: play the SMALLEST legal action that beats current play.
+             * This is much better than random — each sample is more realistic.
+             * For free play, play the smallest single (standard heuristic). */
+            int bestIdx = 0;
+            if (!freePlay && lastType != 0) {
+                /* Find the smallest action that beats the current play */
+                int bestLevel = 999;
+                for (int a = 0; a < (int)legalActions.size(); a++) {
+                    int actionArr[21]; int ai = 0;
+                    for (int c : legalActions[a]) actionArr[ai++] = c;
+                    actionArr[ai] = -1;
+                    int lv = AnalyzeMainPoint(actionArr);
+                    if (lv > lastLevel && lv < bestLevel) {
+                        bestLevel = lv;
+                        bestIdx = a;
+                    }
+                }
+            } else {
+                /* Free play: pick smallest single, or smallest combo */
+                bestIdx = 0; // singles are generated first, smallest first
+            }
 
-            // Compute the type of the action
+            vector<int>& action = legalActions[bestIdx];
             int actionArr[21]; int ai = 0;
             for (int c : action) actionArr[ai++] = c;
             actionArr[ai] = -1;
             lastType = AnalyzeTypeCount(actionArr);
             lastLevel = AnalyzeMainPoint(actionArr);
             lastPassCount = 0;
-
-            // Remove played cards
             ismcts_removeCards(curHand, action);
         }
 
