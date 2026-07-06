@@ -2238,6 +2238,25 @@ void CalPla(struct Ddz * pDdz)
 				}
 			}
 			if(myPosition == Landlord){
+				/* Landlord must stay aggressive (DouZero+ principle).
+				 * If responding to a farmer and we have JOKER/2/bomb, never pass.
+				 * Losing control as landlord usually means losing the game. */
+				/* Landlord aggressive: when we have JOKER/2/bomb to play,
+				 * DO IT immediately. Never pass as landlord with strong cards. */
+				if(pDdz->iPlaCount > 0 && iMax >= 0 && iMax < pDdz->iPlaCount) {
+					int actionArr[21]; int ai=0;
+					for(; pDdz->iPlaArr[iMax][ai]>=0; ai++)
+						actionArr[ai]=pDdz->iPlaArr[iMax][ai];
+					actionArr[ai]=-1;
+					int mainPt = AnalyzeMainPoint(actionArr);
+					if(mainPt >= 12 || IsType2Bomb(actionArr) || IsType1Rocket(actionArr)) {
+						/* Play it now - copy to iToTable and return */
+						for (i = 0; i < ai; i++)
+							pDdz->iToTable[i] = pDdz->iPlaArr[iMax][i];
+						pDdz->iToTable[ai] = -1;
+						return;
+					}
+				}
 				if(cardRemaining[FarmerA]==1 || cardRemaining[FarmerB]==1){
 					CardCombo bigS(--myCards.end(),myCards.end());
 					if(lastValidCombo.comboType==CardComboType::SINGLE and
