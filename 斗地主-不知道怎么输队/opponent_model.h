@@ -67,16 +67,8 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include "DdzV200.h"                  // 游戏框架: Ddz结构体, 牌型枚举, card2level等
 using namespace std;
-
-// ============================================================
-// 前向声明
-// ============================================================
-struct Ddz;                          // 游戏状态结构体(定义在DdzV200.h)
-int card2level(int card);            // 牌编码→等级 (0=3, 1=4, ..., 12=2, 13=小王, 14=大王)
-int AnalyzeTypeCount(int iCards[]);  // 分析牌型编码 (如301=SINGLE, 402=PAIR, 204=BOMB)
-int AnalyzeMainPoint(int iCards[]);  // 分析牌型主级别
-enum class CardComboType;            // 牌型枚举(SINGLE/PAIR/BOMB/...)
 
 // ============================================================
 // 引用主文件中定义的全局变量
