@@ -3,6 +3,7 @@
 #include "DdzV200.h"
 #include <assert.h>
 #include "opponent_model.h"
+#include "ismcts.h"
 
 //不知道怎么输队
 #define DLLEXPORT extern "C" __declspec(dllexport)
@@ -2264,6 +2265,25 @@ void CalPla(struct Ddz * pDdz)
 						pDdz->iToTable[0] = -1; return;
 					}
 
+			}
+		}
+	}
+
+	/* ISMCTS Search: Whitehouse et al., CIG 2011 */
+	/* When few candidates (<=5), use ISMCTS to pick best. */
+	if(pDdz->iPlaCount > 0 && pDdz->iPlaCount <= 5) {
+		vector<int> ismctsAction = ismcts_search(pDdz, 150, 1.0f);
+		if(!ismctsAction.empty()) {
+			for(int is_i = 0; is_i < pDdz->iPlaCount; is_i++) {
+				bool match = true; int is_j = 0;
+				for(; pDdz->iPlaArr[is_i][is_j] >= 0; is_j++) {
+					if(is_j >= (int)ismctsAction.size() || pDdz->iPlaArr[is_i][is_j] != ismctsAction[is_j]) {
+						match = false; break;
+					}
+				}
+				if(match && is_j == (int)ismctsAction.size()) {
+					iMax = is_i; break;
+				}
 			}
 		}
 	}
